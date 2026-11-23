@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Members of Swiss Food Research</title>
+<style>
+/*__FONTS__*/
+/* Swiss Food Research Design System 2026 tokens (subset) */
+:root{
+  --sfr-black:#030a21;--sfr-blue-01:#081f44;--sfr-blue-02:#204e82;--sfr-blue-03:#3f89bb;--sfr-white:#f3f6ff;--sfr-cyan:#00e9ff;
+  --ink-72:rgb(3 10 33/.72);--ink-56:rgb(3 10 33/.56);--ink-16:rgb(3 10 33/.16);--ink-08:rgb(3 10 33/.08);
+  --chip:#dae6f4;--card:#fff;
+  --shadow-sm:0 2px 6px rgb(3 10 33/.08);--shadow-md:0 8px 24px rgb(3 10 33/.10);--focus:0 0 0 3px rgb(0 233 255/.55);
+  --radius-md:8px;--radius-pill:999px;--ease:cubic-bezier(.2,0,0,1);
+  --font:"Funnel Sans","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent}
+body{font-family:var(--font);font-size:17px;line-height:1.45;color:var(--ink-72);-webkit-font-smoothing:antialiased}
+.wall{max-width:1280px;margin:0 auto;padding:8px 4px 24px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin-bottom:20px}
+.count{font-weight:700;font-size:26px;line-height:1.04;letter-spacing:-.02em;color:var(--sfr-black);margin:0}
+.count small{display:block;margin-top:6px;font-weight:400;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-56)}
+.search{flex:1 1 260px;max-width:420px;margin-left:auto;position:relative}
+.search input{width:100%;font:inherit;font-size:15px;color:var(--sfr-black);background:var(--card);border:1px solid var(--ink-16);border-radius:var(--radius-pill);padding:11px 18px 11px 42px;outline:0;transition:border-color 140ms var(--ease),box-shadow 140ms var(--ease)}
+.search input:focus{border-color:var(--sfr-black);box-shadow:var(--focus)}
+.search svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--ink-56);fill:none;stroke-width:2;stroke-linecap:round}
+.filters{display:grid;gap:12px;margin-bottom:28px}
+.row{display:flex;gap:8px 12px;align-items:baseline}
+.row>span{flex:0 0 150px;white-space:nowrap;font-weight:400;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-56)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13px;line-height:1.16;color:var(--sfr-black);background:var(--chip);border:1px solid transparent;border-radius:var(--radius-pill);padding:7px 14px;cursor:pointer;transition:background-color 140ms var(--ease),color 140ms var(--ease)}
+.chip:hover{background:#c8d9ee}
+.chip:focus-visible{outline:0;box-shadow:var(--focus)}
+.chip[aria-pressed="true"]{background:var(--sfr-black);color:var(--sfr-white)}
+.grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:16px}
+.tile{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;padding:18% 14%;background:var(--card);border:1px solid var(--ink-16);border-radius:var(--radius-md);overflow:hidden;text-decoration:none;color:var(--sfr-black);transition:transform 220ms var(--ease),box-shadow 220ms var(--ease),border-color 140ms var(--ease)}
+.tile.dark{background:var(--sfr-blue-01);border-color:var(--sfr-blue-01);color:var(--sfr-white)}
+a.tile:hover,a.tile:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--sfr-black);outline:0}
+a.tile:focus-visible{box-shadow:var(--focus)}
+.tile::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--sfr-cyan);transform:scaleX(0);transform-origin:left;transition:transform 220ms var(--ease)}
+a.tile:hover::after,a.tile:focus-visible::after{transform:scaleX(1)}
+.tile img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.tile .name{font-weight:600;font-size:15px;line-height:1.16;text-align:center;overflow-wrap:anywhere}
+.tile .cap{position:absolute;left:0;right:0;bottom:3px;padding:6px 10px;font-size:11px;line-height:1.16;text-align:center;color:var(--ink-72);background:rgb(255 255 255/.94);opacity:0;transform:translateY(4px);transition:opacity 140ms var(--ease),transform 140ms var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile:hover .cap,.tile:focus-visible .cap{opacity:1;transform:none}
+li[hidden]{display:none}
+.empty{padding:48px 0;text-align:center;color:var(--ink-56)}
+.reset{font:inherit;font-size:13px;color:var(--sfr-blue-02);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+@media (max-width:640px){
+  .row{flex-direction:column;gap:6px}.row>span{flex:none}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+  .search{margin-left:0;max-width:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wall">
+  <div class="bar">
+    <p class="count"><span id="n">__COUNT__ members</span><small id="sub">One network from farm to fork</small></p>
+    <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search members" aria-label="Search members" autocomplete="off"></label>
+  </div>
+  <div class="filters">
+    <div class="row"><span id="l-ig">Innovation Group</span><div class="chips" id="ig" role="group" aria-labelledby="l-ig"></div></div>
+    <div class="row"><span id="l-sec">Sector</span><div class="chips" id="sec" role="group" aria-labelledby="l-sec"></div></div>
+  </div>
+  <ul class="grid" id="grid" aria-live="polite"></ul>
+  <p class="empty" id="empty" hidden>No member matches this selection. <button class="reset" id="reset" type="button">Show all members</button></p>
+</div>
+<script>
+(function(){
+  var TOTAL=__COUNT__, M=__DATA__, IGS=__IGS__, SECTORS=__SECTORS__;
+  var grid=document.getElementById("grid"), q=document.getElementById("q"), state={ig:"",sec:""};
+  function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+  function nameTile(a,m){a.textContent="";a.appendChild(el("span","name",m.n))}
+  M.forEach(function(m){
+    var li=el("li"), a=el(m.u?"a":"div","tile"+(m.d?" dark":""));
+    if(m.u){a.href=m.u;a.target="_blank";a.rel="noopener";a.setAttribute("aria-label",m.n+" (opens the member's website)")}
+    if(m.f){
+      var img=new Image();img.alt=m.n;img.loading="lazy";img.decoding="async";
+      img.onerror=function(){a.classList.remove("dark");nameTile(a,m)};
+      img.src=m.f;
+      a.appendChild(img);a.appendChild(el("span","cap",m.n));
+    } else nameTile(a,m);
+    li.appendChild(a);grid.appendChild(li);m.li=li;m.k=m.n.toLowerCase();
+  });
+  function chips(id,list,key){
+    var box=document.getElementById(id);
+    [""].concat(list).forEach(function(v){
+      var b=el("button","chip",v||"All");b.type="button";b.setAttribute("aria-pressed",v===""?"true":"false");
+      b.onclick=function(){state[key]=v;[].forEach.call(box.children,function(c){c.setAttribute("aria-pressed",c===b?"true":"false")});apply()};
+      box.appendChild(b);
+    });
+  }
+  chips("ig",IGS,"ig");chips("sec",SECTORS,"sec");
+  function apply(){
+    var t=q.value.trim().toLowerCase(), shown=0;
+    M.forEach(function(m){
+      var ok=(!t||m.k.indexOf(t)>-1)&&(!state.ig||(m.ig||[]).indexOf(state.ig)>-1)&&(!state.sec||(m.s||[]).indexOf(state.sec)>-1);
+      m.li.hidden=!ok;if(ok)shown++;
+    });
+    var filtered=t||state.ig||state.sec;
+    document.getElementById("n").textContent=filtered?shown+(shown===1?" match":" matches"):TOTAL+" members";
+    document.getElementById("sub").textContent=filtered?"of "+M.length+" organisations":"One network from farm to fork";
+    document.getElementById("empty").hidden=shown>0;
+    fit();
+  }
+  q.addEventListener("input",apply);
+  document.getElementById("reset").onclick=function(){q.value="";state.ig=state.sec="";
+    ["ig","sec"].forEach(function(id){[].forEach.call(document.getElementById(id).children,function(c,i){c.setAttribute("aria-pressed",i===0?"true":"false")})});apply()};
+  /* When embedded as an iframe block, grow the frame to the content so the page scrolls, not the frame. */
+  function fit(){var h=Math.ceil(document.querySelector(".wall").getBoundingClientRect().height)+8;
+    try{if(window.parent!==window)window.parent.postMessage({sfrLogoWall:h},"*")}catch(e){}}
+  if(window.ResizeObserver)new ResizeObserver(fit).observe(document.querySelector(".wall"));
+  window.addEventListener("load",fit);fit();
+})();
+</script>
+</body>
+</html>

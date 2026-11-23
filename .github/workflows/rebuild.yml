@@ -1,0 +1,81 @@
+name: Rebuild logo wall
+
+# Every Monday at 05:17 Zurich time (04:17 UTC in winter, 05:17 in summer), and on demand from the Actions tab.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Publish even if the member count moved by more than 15%"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: build/requirements.txt
+
+      - name: Install tools
+        run: |
+          pip install -r build/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Pull active members from monday
+        env:
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+        run: python build/fetch_board.py work/board.json
+
+      - name: Build the wall
+        run: python build/logo_wall.py work --date "$(date +%y%m%d)" --version 1
+
+      - name: Check it as a visitor sees it
+        run: python build/verify.py work
+
+      - name: Compare with the live site
+        env:
+          FORCE: ${{ inputs.force }}
+        run: python build/compare_live.py work
+
+      - name: Keep the tile list for checking
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tile-list
+          path: |
+            work/out/*.csv
+            work/check_top.png
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: work/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

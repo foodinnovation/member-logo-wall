@@ -70,6 +70,7 @@ jobs:
             work/out/*.csv
             work/check_top.png
             work/check_galaxy.png
+            work/out/logo-problems.md
           if-no-files-found: ignore
           retention-days: 30
 

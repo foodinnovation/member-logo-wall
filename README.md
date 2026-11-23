@@ -20,6 +20,8 @@ Every Monday at about 05:17 Zurich time, the workflow `Rebuild logo wall` (in `.
 
 If any step fails, nothing is published and the last good version stays online. GitHub sends a failure email to the account that owns the workflow.
 
+A single logo file that cannot be used (download fails, not an image, browsers cannot display it) does not stop the run: that member is shown as a name tile and the file is listed in the run's summary on GitHub (and in `logo-problems.md` among the run's artifacts), to be replaced on monday. Only when many downloads fail at once, which means monday is down or the links expired, does the run stop.
+
 ## Run it by hand
 
 Actions tab > Rebuild logo wall > Run workflow. Tick **force** only when a large change in member numbers is real.

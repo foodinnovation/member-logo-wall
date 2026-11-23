@@ -8,7 +8,7 @@ Writes WORKDIR/site/ (index.html, logos/, fonts/: the whole GitHub Pages site, r
   YYMMDD_Website_Member-Logo-Wall-Tile-List_vNN.csv    one row per tile, for checking
 and prints a report. Exits non-zero on anything that should stop delivery.
 """
-import argparse, base64, shutil, unicodedata, collections, concurrent.futures as cf, csv, datetime, hashlib, html, io, json, pathlib, re, subprocess, sys
+import argparse, base64, os, shutil, unicodedata, collections, concurrent.futures as cf, csv, datetime, hashlib, html, io, json, pathlib, re, subprocess, sys
 
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None  # some members upload print-size PNGs
@@ -70,8 +70,15 @@ def fetch(j):
     return r.stdout.strip()
 with cf.ThreadPoolExecutor(8) as ex:
     codes = dict(zip(jobs, ex.map(fetch, jobs.values())))
+# One bad file only costs that member its logo (name tile instead). Many failures mean monday is down
+# or the links expired, and then nothing is published.
+problems = []      # (organisation, logo file on monday, what went wrong): reported, never fatal
+names = {it["id"]: it["name"].strip() for it in items}
 bad = {i: c for i, c in codes.items() if c != "200"}
-if bad: die(f"{len(bad)} logo downloads failed {sorted(set(bad.values()))}. Links expire after an hour: re-run the pull, then build at once.")
+if len(bad) > max(5, len(jobs) // 20):
+    die(f"{len(bad)} of {len(jobs)} logo downloads failed {sorted(set(bad.values()))}. Links expire after an hour: re-run the pull, then build at once.")
+for i, c in bad.items():
+    problems.append((names[i], jobs[i][2], "download failed (" + (f"HTTP {c}" if c.strip("0") else "no answer") + ")")); del jobs[i]
 
 def web_logo(path):
     """(bytes, extension) as published: SVG unchanged, raster shrunk to tile size as WebP."""
@@ -113,7 +120,9 @@ for it in items:
     t = tiles.setdefault(key, {"n": name, "f": "", "u": "", "ig": [], "s": [], "members": [], "src": "", "inst": inst})
     t["members"].append(name)
     if len(t["members"]) > 1 and t["inst"]: t["n"] = t["inst"]
-    if j and not t["f"]: t["f"], t["src"], t["path"] = data_uri(j[0]), j[2], j[0]
+    if j and not t["f"]:
+        try: t["f"], t["src"], t["path"] = data_uri(j[0]), j[2], j[0]
+        except Exception as e: problems.append((name, j[2], f"file is not a usable image ({type(e).__name__})"))
     m = re.search(r"https?://\S+", cv(it, WEB_COL))
     t["u"] = t["u"] or (m.group(0) if m else "")
     for g in [g.strip() for g in cv(it, IG_COL).split(",") if g.strip()]:
@@ -136,9 +145,9 @@ with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(); pg.goto("about:blank")
     logo_tiles = [t for t in data if t["f"]]
     stats = pg.evaluate(MEASURE, [t["f"] for t in logo_tiles]); b.close()
-broken = [t["n"] for t, s in zip(logo_tiles, stats) if s is None]
-if broken: die(f"logos that do not decode in a browser: {broken}")
 for t, s in zip(logo_tiles, stats):
+    if s is None:   # browsers cannot display this file: name tile instead
+        problems.append((t["n"], t["src"], "browsers cannot display the file")); t["f"] = ""; t.pop("path", None); continue
     dark = (s["light"] >= LIGHT_SHARE and s["transp"] > MIN_TRANSPARENT) or t["n"] in FORCE_DARK
     if dark and t["n"] not in FORCE_WHITE: t["d"] = 1
     t["light"] = round(s["light"], 2)
@@ -189,9 +198,24 @@ with open(OUT / (stem.format("Tile-List") + ".csv"), "w", newline="", encoding="
                     "name tile" if not t["f"] else ("dark" if t.get("d") else "white"), t.get("light", "")])
 
 json.dump({"members": shown, "tiles": len(data)}, open(W / "last_counts.json", "w"))
+logo_tiles = [t for t in data if t["f"]]
+# Report for whoever looks after the board: files to replace on monday, members still without a logo.
+report = ["## Logo wall: logo files to check on monday", ""]
+if problems:
+    report += ["These members are shown as a name tile until the file in their Logo column is replaced:", "",
+               "| Organisation | File on monday | Problem |", "|---|---|---|"]
+    report += [f"| {n} | {f} | {why} |" for n, f, why in problems]
+else:
+    report += ["All logo files on monday could be used."]
+flagged = {n for n, _, _ in problems}
+report += ["", "Members without any file in the Logo column: " + (", ".join(t["n"] for t in data if not t["f"] and t["n"] not in flagged) or "none"), ""]
+(OUT / "logo-problems.md").write_text("\n".join(report), encoding="utf-8")
+if os.environ.get("GITHUB_STEP_SUMMARY"):
+    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh: fh.write("\n".join(report) + "\n")
 print(f"active {len(items)} | shown {shown} | tiles {len(data)} | logos {len(logo_tiles)} | name tiles {len(data)-len(logo_tiles)} | no website {sum(1 for t in data if not t['u'])}")
 print("excluded:", skipped)
 print("name tiles:", [t["n"] for t in data if not t["f"]])
+for n, f, why in problems: print(f"LOGO PROBLEM: {n} | {f} | {why}")
 print("dark tiles:", [t["n"] for t in data if t.get("d")])
 print("merged:", {t["n"]: len(t["members"]) for t in data if len(t["members"]) > 1})
 unknown = [g for g in igs if g not in IG_NAMES.values() and g not in ("Bioconversion", "Coffee", "Future Proof Farming", "Grains & Baked Goods", "Insects", "Packaging", "Sustainable Nutrition")]

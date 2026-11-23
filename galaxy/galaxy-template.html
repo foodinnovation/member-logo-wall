@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<!--
+  Swiss Food Research - Innovation Network Galaxy (premium light)
+  ===============================================================
+  Self-contained: the site face (Noto Sans 400/700, latin subset) and the
+  SFR logo are embedded as base64. No external requests of any kind.
+
+  EMBEDDING in an existing page:
+      <iframe src="/galaxy/sfr-innovation-galaxy-premium.html"
+              style="width:100%;height:760px;border:0" loading="lazy"
+              title="Innovation Network Galaxy"></iframe>
+
+  DATA
+  Holds the active members of the monday.com board "Mitglieder" (1597941591),
+  as of the BUILT_AT stamp below. Members recorded as natural persons are
+  deliberately left out. Members without an innovation group orbit the
+  "Supporters" body.
+
+  WEEKLY REFRESH
+  The dataset lives on exactly one line:  const MEMBERS = [...]
+  and the timestamp on:                   const BUILT_AT = "...";
+  A job only has to rewrite those two lines. The "tagline" is the company
+  description from the Companies board (5098460127), matched by name, with
+  the Mitglieder short text as fallback. Expected shape per entry:
+      {"name":"...","igs":["P4F"],"type":"SME",
+       "sector":"Food & Beverage Production","tagline":"...",
+       "website":"https://..."}
+  The "igs" values are the monday.com short codes; the display names are
+  mapped in IG_META below.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our members · Swiss Food Research</title>
+<meta name="description" content="The active members of Swiss Food Research as an interactive galaxy, grouped by innovation group.">
+<style>
+/* Website face: Noto Sans, exactly as swissfoodresearch.ch loads it (400 + 700). */
+@font-face{
+  font-family:'Noto Sans';
+  font-style:normal; font-weight:400; font-display:swap;
+  src:url(data:font/woff2;base64,__NS400__) format('woff2');
+}
+@font-face{
+  font-family:'Noto Sans';
+  font-style:normal; font-weight:700; font-display:swap;
+  src:url(data:font/woff2;base64,__NS700__) format('woff2');
+}
+:root{
+  color-scheme:light;
+  --paper:#ffffff;
+  --ink:#000000;
+  --ink-2:#444444;
+  --ink-faint:#767676;
+  --line:#e7e4dd;
+  --blue:#1647a4;
+  --navy:#0f2f6b;
+  --gold:#c9a45c;
+  --gold-deep:#a9843c;
+  --sans:'Noto Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--paper); color:var(--ink); overflow:hidden;
+  font-family:var(--sans); -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; height:100vh; height:100dvh;
+}
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
+/* ---------- header ---------- */
+header{
+  display:flex; align-items:baseline; gap:26px; padding:22px 40px 18px;
+  border-bottom:1px solid var(--line); flex:0 0 auto; background:var(--paper);
+}
+header .titles{flex:1 1 auto; min-width:0}
+header .titles h1{
+  font-weight:700; font-size:30px; letter-spacing:normal;
+  color:#000; line-height:normal;
+}
+header .titles p{
+  font-size:16px; color:#444; margin-top:4px;
+}
+header .stats{display:flex; gap:44px; flex:0 0 auto}
+header .stat{text-align:right}
+header .stat .num{
+  font-weight:700; font-size:30px; color:var(--blue); line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+header .stat .lbl{
+  font-size:13px; color:#555; margin-top:5px;
+}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  display:flex; align-items:center; gap:12px; padding:12px 40px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line); flex:0 0 auto; background:var(--paper);
+}
+.toolbar label{font-size:14px; color:#000; font-weight:700}
+.toolbar select,.toolbar input{
+  background:transparent; color:var(--ink); border:none; border-bottom:1px solid var(--line);
+  border-radius:0; padding:6px 2px; font-size:15px; font-family:inherit; outline:none;
+  transition:border-color .15s;
+}
+.toolbar input{min-width:180px}
+.toolbar input::placeholder{color:var(--ink-faint)}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--gold-deep)}
+.tb-sep{width:1px; height:20px; background:var(--line)}
+.ig-legend{display:flex; gap:4px 20px; margin-left:auto; flex-wrap:wrap; justify-content:flex-end}
+.ig-pill{
+  display:inline-flex; align-items:baseline; gap:7px; padding:3px 2px;
+  color:var(--ink-2); border:none; background:none; border-bottom:1px solid transparent;
+  font-family:var(--sans); font-weight:700; font-size:13px;
+  cursor:pointer; white-space:nowrap; transition:.15s;
+}
+.ig-pill:hover{color:var(--ink)}
+.ig-pill .n{font-weight:400; font-size:12px; color:#767676}
+.ig-pill .dot{width:5px; height:5px; border-radius:50%; background:var(--blue); align-self:center; transition:.15s}
+.ig-pill[aria-pressed="true"]{color:var(--gold-deep); border-bottom-color:var(--gold)}
+.ig-pill[aria-pressed="true"] .dot{background:var(--gold)}
+.ig-pill.dim{opacity:.4}
+.ig-pill:focus-visible{outline:2px solid var(--gold-deep); outline-offset:2px}
+
+/* ---------- stage ---------- */
+.galaxy-wrap{flex:1 1 auto; position:relative; overflow:hidden; background:var(--paper)}
+#c{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab; touch-action:none}
+#c.grabbing{cursor:grabbing}
+
+/* ---------- key ---------- */
+.key{
+  position:absolute; left:28px; top:24px; z-index:10; background:rgba(255,255,255,.94);
+  border:1px solid var(--line); padding:14px 16px; max-width:210px;
+  backdrop-filter:blur(6px);
+}
+.key h2{font-size:14px; color:#000; font-weight:700; margin-bottom:10px}
+.key .row{display:flex; align-items:center; gap:9px; font-size:13px; color:#444; margin-top:7px; line-height:1.4}
+.key .row:first-of-type{margin-top:0}
+.key .swatch{flex:0 0 auto; display:flex; align-items:center; gap:3px}
+.key .sw{border-radius:50%; background:#6089c4}
+.key .grad{width:34px; height:10px; border-radius:5px;
+  background:linear-gradient(90deg,#dbe6f5,#8fafdb,#3a63a8,#0f2f6b)}
+@media (max-width:900px){.key{display:none}}
+
+/* ---------- detail panel ---------- */
+.panel{
+  position:absolute; top:24px; right:24px; width:330px; max-width:calc(100% - 48px);
+  background:var(--paper); border:1px solid var(--line);
+  padding:32px 30px 28px; z-index:10;
+  box-shadow:0 24px 60px rgba(24,35,56,.10);
+  transform:translateX(370px); opacity:0; pointer-events:none;
+  transition:transform .45s cubic-bezier(.25,1,.35,1), opacity .3s;
+}
+.panel::before{
+  content:''; position:absolute; top:0; left:30px; right:30px; height:1px;
+  background:var(--gold);
+}
+.panel.open{transform:translateX(0); opacity:1; pointer-events:auto}
+.panel-close{
+  position:absolute; top:12px; right:14px; background:none; border:none;
+  color:var(--ink-faint); font-size:15px; cursor:pointer; line-height:1; padding:4px;
+}
+.panel-close:hover{color:var(--ink)}
+.panel-close:focus-visible{outline:2px solid var(--gold-deep); outline-offset:1px}
+.panel-planet-preview{display:block; margin:0 auto 18px; border-radius:50%}
+.panel-name{
+  font-weight:700; font-size:20px; text-align:center;
+  line-height:1.3; color:#000;
+}
+.panel-tagline{
+  font-size:14px; color:#444; text-align:center; margin-top:11px; line-height:1.6;
+}
+.panel-meta{
+  display:flex; flex-wrap:wrap; gap:8px 18px; justify-content:center; margin-top:20px;
+  padding-top:16px; border-top:1px solid var(--line);
+}
+.tag{
+  font-size:12.5px; color:#444; white-space:nowrap; font-weight:400;
+}
+.tag.gold{color:var(--gold-deep)}
+.panel-link{
+  display:block; text-align:center; margin-top:24px; padding:11px;
+  background:transparent; color:var(--ink); border:1px solid var(--ink);
+  text-decoration:none; font-size:14px; font-weight:700; transition:.18s;
+}
+.panel-link:hover{background:var(--ink); color:var(--paper)}
+.panel-link:focus-visible{outline:2px solid var(--gold-deep); outline-offset:2px}
+.panel-link.disabled{border-color:var(--line); color:var(--ink-faint); pointer-events:none}
+
+/* ---------- controls ---------- */
+.zoom-ctrl{position:absolute; left:28px; bottom:24px; display:flex; z-index:10; border:1px solid var(--line); background:var(--paper)}
+.zoom-ctrl button{
+  width:40px; height:40px; cursor:pointer; font-size:16px;
+  background:transparent; color:var(--ink-2); border:none; font-family:var(--sans);
+  border-right:1px solid var(--line); transition:.15s;
+}
+.zoom-ctrl button:last-child{border-right:none}
+.zoom-ctrl button:hover{color:var(--gold-deep)}
+.zoom-ctrl button:focus-visible{outline:2px solid var(--gold-deep); outline-offset:-3px}
+
+.tooltip{
+  position:absolute; pointer-events:none; z-index:9; padding:7px 14px;
+  background:var(--ink); color:var(--paper);
+  font-family:var(--sans); font-size:13.5px; font-weight:700;
+  white-space:nowrap; opacity:0; transition:opacity .12s;
+  transform:translate(-50%,-160%);
+}
+.tooltip.show{opacity:1}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; transition-duration:.001ms !important}
+}
+@media (max-width:680px){
+  header{padding:14px 16px 12px; gap:12px}
+  header .titles h1{font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  header .titles p{font-size:8.5px; letter-spacing:.14em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  header .stats{gap:20px}
+  header .stat .num{font-size:19px}
+  header .stat .lbl{font-size:7.5px; letter-spacing:.14em}
+
+  .toolbar{gap:8px; padding:10px 0 10px 16px; row-gap:9px}
+  .toolbar label,.toolbar .tb-sep{display:none}
+  .toolbar select{flex:1 1 0; min-width:0; font-size:12.5px}
+  .toolbar input{flex:2 1 110px; min-width:0; margin-right:16px}
+  .ig-legend{
+    order:9; flex:1 0 100%; margin-left:0; flex-wrap:nowrap; justify-content:flex-start;
+    overflow-x:auto; overflow-y:hidden; padding:1px 16px 3px 0; gap:16px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .ig-legend::-webkit-scrollbar{display:none}
+  .ig-pill{flex:0 0 auto}
+
+  .panel{top:12px; right:12px; width:auto; left:12px; padding:22px 20px 20px}
+  .zoom-ctrl{left:12px; bottom:12px}
+  .zoom-ctrl button{width:36px; height:36px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <h1>Our members</h1>
+    <p id="subtitle">Swiss Food Research · The Active Members</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" id="n-orgs">–</div><div class="lbl">Members</div></div>
+    <div class="stat"><div class="num" id="n-igs">–</div><div class="lbl">Innovation groups</div></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <label for="f-type">Type</label>
+  <select id="f-type"><option value="">All</option></select>
+  <div class="tb-sep"></div>
+  <label for="f-sector">Sector</label>
+  <select id="f-sector"><option value="">All</option></select>
+  <div class="tb-sep"></div>
+  <label for="f-search">Search</label>
+  <input type="text" id="f-search" placeholder="Search members…" autocomplete="off">
+  <div class="ig-legend" id="ig-legend"></div>
+</div>
+
+<div class="galaxy-wrap" id="wrap">
+  <canvas id="c" aria-label="Interactive map of the active members of Swiss Food Research, grouped by innovation group." role="img"></canvas>
+
+  <div class="key">
+    <h2>Key</h2>
+    <div class="row"><span class="swatch"><span class="sw" style="width:7px;height:7px"></span><span class="sw" style="width:11px;height:11px"></span><span class="sw" style="width:15px;height:15px"></span></span> Size = organisation type</div>
+    <div class="row"><span class="grad"></span> Depth of blue = sector</div>
+    <div class="row"><span class="swatch"><span class="sw" style="width:13px;height:13px;background:#0f2f6b;box-shadow:0 0 0 1.5px #fcfbf9,0 0 0 2.5px #c9a45c"></span></span> Sun = innovation group</div>
+  </div>
+
+  <div class="panel" id="panel" role="dialog" aria-label="Member details">
+    <button class="panel-close" id="panel-close" aria-label="Close">✕</button>
+    <canvas class="panel-planet-preview" id="preview-canvas" width="116" height="116" aria-hidden="true"></canvas>
+    <div class="panel-name" id="p-name"></div>
+    <div class="panel-tagline" id="p-tagline"></div>
+    <div class="panel-meta" id="p-meta"></div>
+    <a class="panel-link" id="p-link" href="#" target="_blank" rel="noopener">Visit website</a>
+  </div>
+
+  <div class="zoom-ctrl">
+    <button id="z-in" title="Zoom in" aria-label="Zoom in">+</button>
+    <button id="z-out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button id="z-reset" title="Reset view" aria-label="Reset view">⌂</button>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+</div>
+
+<!-- Text version of the same data: for screen readers, visitors without canvas, and search engines. -->
+<div class="sr-only" id="a11y-list"></div>
+
+<script>
+/* ============================================================
+   Swiss Food Research - Innovation Network Galaxy (premium light)
+   Static export. Data as of BUILT_AT.
+   Active members of the monday.com board "Mitglieder" (1597941591).
+   ============================================================ */
+
+const MEMBERS = /*__MEMBER_DATA__*/;
+const BUILT_AT = "/*__BUILT_AT__*/";
+
+/* Innovation groups: monday.com short code -> official website name. */
+const IG_META = {
+  "Aqua":                  "Aquaculture",
+  "Digi":                  "Digitalization",
+  "Digit":                 "Digitalization",
+  "Chocolate":             "Cocoa & Chocolate",
+  "Fungi":                 "Fungi & Fungal Systems",
+  "P4F":                   "Proteins4Future",
+  "Future Proof Farming":  "Future Proof Farming",
+  "Sustainable Nutrition": "Sustainable Nutrition",
+  "Bioconversion":         "Bioconversion",
+  "Coffee":                "Coffee",
+  "Grains & Baked Goods":  "Grains & Baked Goods",
+  "Insects":               "Insects",
+  "Packaging":             "Packaging",
+  "Non Thermal Preservation":"Non Thermal Preservation",
+};
+const SUPPORTERS_ID = "__supporters__";
+function igName(id){
+  if(id===SUPPORTERS_ID)return "Supporters";
+  return IG_META[id]||id;
+}
+
+/* Blue ramp: sector decides the depth of blue. One family, six steps. */
+const BLUE_RAMP=["#dbe6f5","#b7cdea","#8fafdb","#6089c4","#3a63a8","#0f2f6b"];
+const SECTOR_SHADE={
+  "Research & Education":5,
+  "Food & Beverage Production":4,
+  "Primary Production":3,
+  "Ingredients & Raw Materials":3,
+  "Technology & Equipment":2,
+  "Digital & Data":2,
+  "Trade, Logistics & Distribution":1,
+  "Services & Consulting":1,
+  "Packaging & Materials":1,
+  "Networks & Public Sector":0
+};
+const TYPE_SIZE={"Large Corporate":16,"Research":12.5,"Organization":11.5,"SME":10,"Start-up":8};
+const TYPE_ORDER=["Start-up","SME","Large Corporate","Research","Organization"];
+
+const GOLD="#c9a45c", GOLD_DEEP="#a9843c";
+const SFR_R=125, PLANET_BASE=10;
+
+/* ===== Helpers: deterministic randomness + hash ===== */
+function seededRand(seed){let s=seed>>>0;return()=>{s=(Math.imul(1664525,s)+1013904223)>>>0;return s/0x100000000;};}
+function hash(str){let h=5381;for(let i=0;i<str.length;i++)h=(Math.imul(33,h)^str.charCodeAt(i))>>>0;return h;}
+
+/* ===== Colour helpers ===== */
+function hexToRgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function rgbToHex(r,g,b){const c=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');return'#'+c(r)+c(g)+c(b);}
+function shade(hex,f){const[r,g,b]=hexToRgb(hex);if(f>=0)return rgbToHex(r+(255-r)*f,g+(255-g)*f,b+(255-b)*f);return rgbToHex(r*(1+f),g*(1+f),b*(1+f));}
+
+/* Diacritic-insensitive search: "zurich" should find "Zürich". */
+function foldText(t){
+  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ß/g,'ss');
+}
+
+/* ===== State ===== */
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+let W=0,H=0,DPR=1, camX=0,camY=0,camZ=.5, defaultZ=.5;
+let suns=[], planets=[], hoverObj=null, selectedObj=null, lastTs=0;
+let activeIG="all", fType="", fSector="", fSearch="";
+const wrap=document.getElementById('wrap');
+const tooltip=document.getElementById('tooltip');
+const panel=document.getElementById('panel');
+const reduceMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SANS=`'Noto Sans',sans-serif`;
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=wrap.clientWidth; H=wrap.clientHeight;
+  canvas.width=Math.max(1,W*DPR); canvas.height=Math.max(1,H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+function worldToScreen(wx,wy){return[(wx-camX)*camZ+W/2,(wy-camY)*camZ+H/2];}
+function screenToWorld(sx,sy){return[(sx-W/2)/camZ+camX,(sy-H/2)/camZ+camY];}
+
+/* ===== Planet texture: one blue, drawn like a polished stone ===== */
+function buildTexture(name,radius,base,ss){
+  const size=Math.ceil(radius*2)*ss+8;
+  const cv=document.createElement('canvas'); cv.width=size; cv.height=size;
+  const c=cv.getContext('2d'); const cx=size/2, cy=size/2, r=size/2-3;
+  const rnd=seededRand(hash(name));
+  c.save(); c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.clip();
+  let g=c.createRadialGradient(cx-r*.42,cy-r*.46,r*.06,cx,cy,r*1.5);
+  g.addColorStop(0,shade(base,.55)); g.addColorStop(.4,base); g.addColorStop(1,shade(base,-.45));
+  c.fillStyle=g; c.fillRect(0,0,size,size);
+  c.save(); c.translate(cx,cy); c.rotate((rnd()*2-1)*.4); c.translate(-cx,-cy);
+  const bands=3+Math.floor(rnd()*4);
+  for(let i=0;i<bands;i++){
+    const by=-r+(i+.5)/bands*2*r;
+    c.globalAlpha=.05+rnd()*.07;
+    c.fillStyle=rnd()>.5?shade(base,.35):shade(base,-.3);
+    c.beginPath(); c.ellipse(cx,cy+by,r*1.15,r*(.08+rnd()*.1),0,0,Math.PI*2); c.fill();
+  }
+  c.restore(); c.globalAlpha=1;
+  g=c.createRadialGradient(cx-r*.45,cy-r*.5,0,cx-r*.45,cy-r*.5,r*.9);
+  g.addColorStop(0,'rgba(255,255,255,0.5)'); g.addColorStop(.45,'rgba(255,255,255,0.09)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=g; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.fill();
+  g=c.createRadialGradient(cx+r*.5,cy+r*.55,r*.15,cx+r*.5,cy+r*.55,r*1.5);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.55,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(10,20,42,0.4)');
+  c.fillStyle=g; c.beginPath(); c.arc(cx,cy,r,0,Math.PI*2); c.fill();
+  c.restore();
+  return cv;
+}
+function ensureTexture(p){
+  if(!p._tex)p._tex=buildTexture(p.m.name,p.radius,p.base,3);
+  return p._tex;
+}
+
+/* ===== Center: the official Swiss Food Research logo ===== */
+let logoImg=null, logoReady=false;
+function buildLogo(){
+  logoImg=new Image();
+  logoImg.onload=()=>{logoReady=true;};
+  logoImg.src='data:image/png;base64,__LOGO__';
+}
+
+/* ===== Layout: one system per innovation group, plus the Supporters body.
+   Every system shares one angular speed, so the ring turns as a whole. ===== */
+function buildLayout(orgs){
+  suns=[]; planets=[];
+  const counts={};
+  orgs.forEach(m=>m.igs.forEach(ig=>counts[ig]=(counts[ig]||0)+1));
+  const igList=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+
+  const byIG={}, noIG=[];
+  orgs.forEach(m=>{
+    if(!m.igs.length){noIG.push(m);return;}
+    (byIG[m.igs[0]]=byIG[m.igs[0]]||[]).push(m);
+  });
+  const bySize=(a,b)=>((TYPE_SIZE[b.type]||PLANET_BASE)-(TYPE_SIZE[a.type]||PLANET_BASE));
+  Object.values(byIG).forEach(l=>l.sort(bySize));
+  noIG.sort(bySize);
+
+  /* count = every member carrying this group (members can belong to several);
+     the planet orbits its first-listed group, the filter matches any. */
+  const igData=igList.map(id=>({
+    sun:{id,name:igName(id),count:counts[id],supporter:false,
+      r:Math.min(28,11+Math.sqrt(counts[id])*1.05),orbitAngle:0},
+    members:byIG[id]||[]
+  }));
+  if(noIG.length){
+    igData.push({sun:{id:SUPPORTERS_ID,name:igName(SUPPORTERS_ID),count:noIG.length,supporter:true,
+      r:Math.min(28,11+Math.sqrt(noIG.length)*1.05),orbitAngle:0},members:noIG});
+  }
+
+  function pack(d){
+    const sun=d.sun;
+    const shells=[]; let s=0;
+    const shellR=k=>sun.r+PLANET_BASE+24+k*PLANET_BASE*3.6;
+    const cap=k=>Math.max(3,Math.floor((2*Math.PI*shellR(k))/(PLANET_BASE*3.8)));
+    d.members.forEach(m=>{
+      while(shells[s]&&shells[s].list.length>=cap(s))s++;
+      if(!shells[s])shells[s]={r:shellR(s),list:[],idx:s};
+      shells[s].list.push(m);
+    });
+    shells.forEach(shell=>{
+      const srnd=seededRand(hash(sun.id+'s'+shell.idx));
+      const speed=(0.00007+srnd()*0.00009)*(srnd()>.5?1:-1);
+      const phase=srnd()*Math.PI*2;
+      shell.list.forEach((m,i)=>{
+        const prnd=seededRand(hash(m.name));
+        const base=BLUE_RAMP[SECTOR_SHADE[m.sector]??2];
+        planets.push({m,host:sun,
+          orbitR:shell.r, angle:phase+(i/shell.list.length)*Math.PI*2+(prnd()*2-1)*.03,
+          speed, radius:(TYPE_SIZE[m.type]||PLANET_BASE)+(prnd()*2-1)*1.1,
+          base,_tex:null,_visible:true,_fold:foldText(m.name+' '+(m.tagline||''))});
+      });
+    });
+    sun.systemRadius=(shells.length?shells[shells.length-1].r:sun.r+PLANET_BASE)+PLANET_BASE+12;
+  }
+  igData.forEach(pack);
+
+  const GAP=105, RING_SPEED=0.0000160;
+  const maxSys=igData.reduce((mx,d)=>Math.max(mx,d.sun.systemRadius),0);
+  const totalArc=igData.reduce((s,d)=>s+d.sun.systemRadius*2+GAP,0);
+  const ORBIT=Math.max(420,totalArc/(2*Math.PI),SFR_R+maxSys+150);
+  let cum=0;
+  igData.forEach(d=>{
+    const slice=d.sun.systemRadius*2+GAP;
+    d.sun.baseAngle=(cum+slice/2)/totalArc*Math.PI*2 - Math.PI/2;
+    cum+=slice;
+    d.sun.orbitR=ORBIT; d.sun.orbitSpeed=RING_SPEED;
+    suns.push(d.sun);
+  });
+  return ORBIT+maxSys;
+}
+
+/* ===== Drawing ===== */
+function drawSFR(sx,sy,r){
+  if(logoReady){
+    const lw=r*2, lh=lw*(logoImg.naturalHeight/logoImg.naturalWidth);
+    ctx.drawImage(logoImg,sx-lw/2,sy-lh/2,lw,lh);
+  }
+}
+
+function drawSun(sun,sx,sy,r){
+  ctx.save();
+  ctx.shadowColor='rgba(24,35,56,0.18)'; ctx.shadowBlur=r*.8; ctx.shadowOffsetY=r*.18;
+  let g;
+  if(sun.supporter){
+    /* Supporters: porcelain body with a gold hairline - a different kind of sun */
+    g=ctx.createRadialGradient(sx-r*.34,sy-r*.36,r*.05,sx,sy,r*1.05);
+    g.addColorStop(0,'#ffffff'); g.addColorStop(.6,'#f4f1ea'); g.addColorStop(1,'#e2dccd');
+  }else{
+    g=ctx.createRadialGradient(sx-r*.34,sy-r*.36,r*.05,sx,sy,r*1.05);
+    g.addColorStop(0,'#3a63a8'); g.addColorStop(.55,'#16407e'); g.addColorStop(1,'#0a2350');
+  }
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle=GOLD; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(sx,sy,r+4,0,Math.PI*2); ctx.stroke();
+}
+
+/* Group labels get their own pass: each starts radially outside its system
+   and is pushed further out while it still touches one already placed. */
+let planetLabelBoxes=[];
+function drawSunLabels(){
+  /* seed with the member-name boxes so group labels never sit on them */
+  const placed=[...planetLabelBoxes];
+  const order=[...suns].sort((a,b)=>b.count-a.count);
+  for(const sun of order){
+    const r=sun.r*camZ;
+    const fs=Math.max(13,Math.min(19,r*.7)), cs=Math.max(10.5,fs*.66);
+    ctx.font=`700 ${fs}px ${SANS}`;
+    const wn=ctx.measureText(sun.name).width;
+    const cTxt=(sun.count+' members');
+    ctx.font=`400 ${cs}px ${SANS}`;
+    const wc=ctx.measureText(cTxt).width;
+    const w=Math.max(wn,wc), h=fs+cs+6;
+
+    const a=sun._ang||0, ux=Math.cos(a), uy=Math.sin(a);
+    let d=Math.max(r*1.6,(sun.systemRadius*camZ))+10, box=null;
+    for(let step=0;step<26;step++){
+      const lx=sun._sx+ux*d, ly=sun._sy+uy*d;
+      let x0=Math.abs(ux)<.5 ? lx-w/2 : (ux>0?lx:lx-w);
+      x0=w>=W-10?(W-w)/2:Math.max(5,Math.min(x0,W-5-w));
+      const y0=uy>=0?ly:ly-h;
+      box={x0,y0,x1:x0+w,y1:y0+h};
+      const clash=placed.some(b=>!(box.x1<b.x0-6||box.x0>b.x1+6||box.y1<b.y0-4||box.y0>b.y1+4));
+      if(!clash)break;
+      d+=h*.9;
+    }
+    placed.push(box);
+    const mid=box.x0+w/2;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.font=`700 ${fs}px ${SANS}`;
+    ctx.fillStyle=sun.supporter?GOLD_DEEP:'#000000';
+    ctx.fillText(sun.name,mid,box.y0);
+    ctx.font=`400 ${cs}px ${SANS}`;
+    ctx.fillStyle='#767676';
+    ctx.fillText(cTxt,mid,box.y0+fs+4);
+  }
+}
+
+function tick(ts){
+  const dt=reduceMotion?0:Math.min(ts-lastTs,40); lastTs=ts;
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+  for(const sun of suns){
+    sun.orbitAngle+=sun.orbitSpeed*dt;
+    const a=sun.baseAngle+sun.orbitAngle;
+    sun._ang=a;
+    sun.wx=Math.cos(a)*sun.orbitR; sun.wy=Math.sin(a)*sun.orbitR;
+  }
+  const[cx,cy]=worldToScreen(0,0);
+
+  const labelQueue=[];
+  for(const p of planets){
+    p.angle+=p.speed*dt;
+    const[sx,sy]=worldToScreen(p.host.wx+Math.cos(p.angle)*p.orbitR,
+                               p.host.wy+Math.sin(p.angle)*p.orbitR);
+    const sr=p.radius*camZ;
+    p._sx=sx; p._sy=sy; p._sr=sr;
+    if(!p._visible)continue;
+    if(sx<-40||sx>W+40||sy<-40||sy>H+40)continue;
+
+    if(p===selectedObj||p===hoverObj||searchEmphasis){
+      ctx.strokeStyle=p===selectedObj?GOLD_DEEP:GOLD; ctx.lineWidth=p===selectedObj?1.4:1;
+      ctx.beginPath(); ctx.arc(sx,sy,Math.max(sr+6,10),0,Math.PI*2); ctx.stroke();
+    }
+    if(sr<2){
+      ctx.fillStyle=p.base;
+      ctx.beginPath(); ctx.arc(sx,sy,Math.max(.7,sr),0,Math.PI*2); ctx.fill();
+      continue;
+    }
+    ctx.save();
+    ctx.shadowColor='rgba(24,35,56,0.16)'; ctx.shadowBlur=Math.max(2,sr*.5); ctx.shadowOffsetY=Math.max(1,sr*.14);
+    ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.clip();
+    ctx.drawImage(ensureTexture(p),sx-sr,sy-sr,sr*2,sr*2); ctx.restore();
+
+    if(sr>6.5||p===selectedObj||searchEmphasis)labelQueue.push(p);
+  }
+
+  /* Member names: biggest planets first; a name is only drawn if it does not
+     overlap one already placed, another planet's disc, or a group sun. */
+  labelQueue.sort((a,b)=>(b===selectedObj?1:0)-(a===selectedObj?1:0)||b._sr-a._sr);
+  const placed=[]; planetLabelBoxes=placed;
+  for(const p of labelQueue){
+    const fs=Math.max(10,Math.min(13,p._sr*.6));
+    ctx.font=`400 ${fs}px ${SANS}`;
+    const w=ctx.measureText(p.m.name).width, h=fs*1.3;
+    const x0=Math.max(5,Math.min(p._sx-w/2,W-5-w)), y0=p._sy+p._sr+6;
+    const box={x0,y0,x1:x0+w,y1:y0+h};
+    const emph=p===selectedObj||searchEmphasis;
+    if(!emph){
+      if(placed.some(b=>!(box.x1<b.x0-4||box.x0>b.x1+4||box.y1<b.y0-3||box.y0>b.y1+3)))continue;
+      if(planets.some(o=>o!==p&&o._visible&&o._sr>2&&
+          o._sx>box.x0-o._sr&&o._sx<box.x1+o._sr&&
+          o._sy>box.y0-o._sr&&o._sy<box.y1+o._sr))continue;
+      if(suns.some(su=>{const r=su.r*camZ+6;
+          return su._sx>box.x0-r&&su._sx<box.x1+r&&su._sy>box.y0-r&&su._sy<box.y1+r;}))continue;
+    }else if(p!==selectedObj){
+      if(placed.some(b=>!(box.x1<b.x0-4||box.x0>b.x1+4||box.y1<b.y0-3||box.y0>b.y1+3)))continue;
+    }
+    placed.push(box);
+    planetLabelBoxes=placed;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    if(emph){ctx.lineWidth=3.5;ctx.strokeStyle='rgba(255,255,255,0.95)';ctx.strokeText(p.m.name,x0+w/2,y0);}
+    ctx.fillStyle=p===selectedObj?GOLD_DEEP:(searchEmphasis?'#000000':'#444444');
+    ctx.fillText(p.m.name,x0+w/2,y0);
+  }
+
+  for(const sun of suns){
+    const[sx,sy]=worldToScreen(sun.wx,sun.wy);
+    sun._sx=sx; sun._sy=sy;
+    drawSun(sun,sx,sy,sun.r*camZ);
+  }
+  drawSunLabels();
+  drawSFR(cx,cy,SFR_R*camZ);
+
+  requestAnimationFrame(tick);
+}
+
+/* ===== Filters ===== */
+function applyFilters(){
+  const q=foldText(fSearch.trim());
+  let n=0;
+  for(const p of planets){
+    let vis=true;
+    if(fType&&p.m.type!==fType)vis=false;
+    if(fSector&&p.m.sector!==fSector)vis=false;
+    if(q&&!p._fold.includes(q))vis=false;
+    if(activeIG!=="all"){
+      if(activeIG===SUPPORTERS_ID){if(p.m.igs.length)vis=false;}
+      else if(!p.m.igs.includes(activeIG))vis=false;
+    }
+    p._visible=vis; if(vis)n++;
+  }
+  /* With a search query active and a manageable hit count, results are
+     emphasized on the canvas: a gold ring and their name, whatever their
+     size - otherwise a match can be an invisible dot. */
+  searchEmphasis=!!q&&n<=30;
+  document.getElementById('n-orgs').textContent=n;
+}
+let searchEmphasis=false;
+
+function populateFilters(orgs){
+  const tSel=document.getElementById('f-type');
+  const present=new Set(orgs.map(m=>m.type).filter(Boolean));
+  TYPE_ORDER.filter(t=>present.has(t)).forEach(t=>{
+    const o=document.createElement('option'); o.value=t; o.textContent=t; tSel.appendChild(o);
+  });
+  const sSel=document.getElementById('f-sector');
+  [...new Set(orgs.map(m=>m.sector).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'en'))
+    .forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sSel.appendChild(o);});
+}
+
+function buildIGLegend(){
+  const el=document.getElementById('ig-legend'); el.innerHTML='';
+  suns.forEach(sun=>{
+    const pill=document.createElement('button');
+    pill.type='button'; pill.className='ig-pill';
+    pill.setAttribute('aria-pressed','false');
+    pill.innerHTML=`<span class="dot"${sun.supporter?' style="background:#c9a45c"':''}></span>${sun.name} <span class="n">${sun.count}</span>`;
+    pill.onclick=()=>{activeIG=(activeIG===sun.id)?"all":sun.id;updateLegendState();applyFilters();};
+    pill.dataset.ig=sun.id; el.appendChild(pill);
+  });
+  updateLegendState();
+}
+function updateLegendState(){
+  document.querySelectorAll('.ig-pill').forEach(p=>{
+    const on=activeIG===p.dataset.ig;
+    p.classList.toggle('dim',activeIG!=="all"&&!on);
+    p.setAttribute('aria-pressed',String(on));
+  });
+}
+
+/* ===== Detail panel ===== */
+function openPanel(p){
+  selectedObj=p; const m=p.m;
+  const c=document.getElementById('preview-canvas').getContext('2d');
+  c.clearRect(0,0,116,116);
+  c.save(); c.beginPath(); c.arc(58,58,52,0,Math.PI*2); c.clip();
+  c.drawImage(ensureTexture(p),6,6,104,104); c.restore();
+  c.strokeStyle=GOLD; c.lineWidth=1;
+  c.beginPath(); c.arc(58,58,55,0,Math.PI*2); c.stroke();
+  document.getElementById('p-name').textContent=m.name;
+  const tl=document.getElementById('p-tagline');
+  tl.textContent=m.tagline||''; tl.style.display=m.tagline?'block':'none';
+  const meta=document.getElementById('p-meta'); meta.innerHTML='';
+  const add=(cls,txt)=>{const t=document.createElement('span');t.className='tag '+cls;t.textContent=txt;meta.appendChild(t);};
+  if(m.sector)add('gold',m.sector);
+  if(m.type)add('',m.type);
+  if(m.igs.length)m.igs.forEach(ig=>add('',igName(ig)));
+  else add('',igName(SUPPORTERS_ID));
+  const link=document.getElementById('p-link');
+  if(m.website){link.href=m.website;link.classList.remove('disabled');link.removeAttribute('aria-disabled');}
+  else{link.href='#';link.classList.add('disabled');link.setAttribute('aria-disabled','true');}
+  panel.classList.add('open');
+}
+function closePanel(){panel.classList.remove('open');selectedObj=null;}
+document.getElementById('panel-close').onclick=closePanel;
+window.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+
+/* ===== Interaction ===== */
+let dragging=false,dragStart=null,moved=0;
+canvas.addEventListener('pointerdown',e=>{
+  dragging=true; moved=0; dragStart={x:e.clientX,y:e.clientY};
+  canvas.classList.add('grabbing');
+  if(e.pointerType!=='touch')canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointerup',e=>{
+  dragging=false; canvas.classList.remove('grabbing');
+  if(moved>5)return;
+  const rect=canvas.getBoundingClientRect();
+  const hit=hitTest(e.clientX-rect.left,e.clientY-rect.top);
+  if(hit)openPanel(hit); else closePanel();
+});
+canvas.addEventListener('pointercancel',()=>{dragging=false;canvas.classList.remove('grabbing');});
+canvas.addEventListener('pointermove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  if(dragging){
+    const dx=e.clientX-dragStart.x, dy=e.clientY-dragStart.y;
+    moved+=Math.abs(dx)+Math.abs(dy);
+    camX-=dx/camZ; camY-=dy/camZ; dragStart={x:e.clientX,y:e.clientY};
+    tooltip.classList.remove('show'); return;
+  }
+  if(e.pointerType==='touch')return;
+  hoverObj=hitTest(mx,my);
+  if(hoverObj){
+    canvas.style.cursor='pointer';
+    tooltip.textContent=hoverObj.m.name;
+    tooltip.style.left=mx+'px'; tooltip.style.top=my+'px';
+    tooltip.classList.add('show');
+  }else{canvas.style.cursor='grab';tooltip.classList.remove('show');}
+});
+canvas.addEventListener('pointerleave',()=>{hoverObj=null;tooltip.classList.remove('show');});
+function hitTest(mx,my){
+  let best=null,bestD=1e9;
+  for(const p of planets){
+    if(!p._visible)continue;
+    const d=Math.hypot(mx-p._sx,my-p._sy), hr=Math.max(p._sr+5,9);
+    if(d<hr&&d<bestD){bestD=d;best=p;}
+  }
+  return best;
+}
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const[wx,wy]=screenToWorld(mx,my);
+  camZ*=e.deltaY<0?1.1:.91; camZ=Math.max(.06,Math.min(2.8,camZ));
+  camX=wx-(mx-W/2)/camZ; camY=wy-(my-H/2)/camZ;
+},{passive:false});
+
+/* pinch zoom */
+let pinchDist=0;
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2){pinchDist=tdist(e);dragging=false;}},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===2){
+    e.preventDefault();
+    const d=tdist(e);
+    if(pinchDist){camZ*=d/pinchDist;camZ=Math.max(.06,Math.min(2.8,camZ));}
+    pinchDist=d;
+  }
+},{passive:false});
+canvas.addEventListener('touchend',()=>{pinchDist=0;});
+function tdist(e){const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+
+document.getElementById('f-type').onchange=e=>{fType=e.target.value;applyFilters();};
+document.getElementById('f-sector').onchange=e=>{fSector=e.target.value;applyFilters();};
+document.getElementById('f-search').oninput=e=>{fSearch=e.target.value;applyFilters();};
+document.getElementById('z-in').onclick=()=>camZ=Math.min(2.8,camZ*1.25);
+document.getElementById('z-out').onclick=()=>camZ=Math.max(.06,camZ*.8);
+document.getElementById('z-reset').onclick=()=>{camX=0;camY=0;camZ=defaultZ;};
+
+/* ===== Text version for screen readers and search engines ===== */
+function buildAccessibleList(orgs){
+  const el=document.getElementById('a11y-list');
+  const h=document.createElement('h2');
+  h.textContent='Active members of Swiss Food Research';
+  el.appendChild(h);
+  const ul=document.createElement('ul');
+  orgs.forEach(m=>{
+    const li=document.createElement('li');
+    const bits=[m.name];
+    if(m.tagline)bits.push(m.tagline);
+    if(m.sector)bits.push(m.sector);
+    if(m.type)bits.push(m.type);
+    bits.push(m.igs.length?('Innovation groups: '+m.igs.map(igName).join(', ')):'Supporter');
+    li.textContent=bits.join(' — ');
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+/* ===== Boot ===== */
+function init(){
+  resize(); buildLogo();
+  const extent=buildLayout(MEMBERS);
+  /* Opening zoom frames the whole ring with room for the labels. */
+  const margin=Math.min(W,H)<560?185:135;
+  defaultZ=Math.max(.06,Math.min(1.1,Math.min(W,H)/((extent+margin)*2.1)));
+  camZ=defaultZ;
+  populateFilters(MEMBERS);
+  buildIGLegend();
+  applyFilters();
+  buildAccessibleList(MEMBERS);
+  document.getElementById('n-igs').textContent=suns.filter(s=>!s.supporter).length;
+  const d=new Date(BUILT_AT);
+  document.getElementById('subtitle').textContent=
+    'Swiss Food Research · as of '+d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  requestAnimationFrame(tick);
+}
+document.fonts?document.fonts.ready.then(init):init();
+</script>
+</body>
+</html>

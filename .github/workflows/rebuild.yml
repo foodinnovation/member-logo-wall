@@ -1,5 +1,7 @@
 name: Rebuild logo wall
 
+# Builds both member views from the monday board Mitglieder: the logo wall (site root) and the galaxy (site/galaxy/).
+
 # Every Monday at 05:17 Zurich time (04:17 UTC in winter, 05:17 in summer), and on demand from the Actions tab.
 on:
   schedule:
@@ -48,6 +50,12 @@ jobs:
       - name: Check it as a visitor sees it
         run: python build/verify.py work
 
+      - name: Build the galaxy
+        run: python galaxy/build_galaxy.py work
+
+      - name: Check the galaxy
+        run: python galaxy/verify_galaxy.py work
+
       - name: Compare with the live site
         env:
           FORCE: ${{ inputs.force }}
@@ -61,6 +69,7 @@ jobs:
           path: |
             work/out/*.csv
             work/check_top.png
+            work/check_galaxy.png
           if-no-files-found: ignore
           retention-days: 30
 

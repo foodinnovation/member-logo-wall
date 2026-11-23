@@ -1,8 +1,11 @@
-# SFR member logo wall
+# SFR member logo wall and member galaxy
 
-The logo wall of Swiss Food Research members, published at https://foodinnovation.github.io/member-logo-wall/ and embedded on swissfoodresearch.ch through a fixed iframe block in the Django admin.
+Two views of the Swiss Food Research members, both built from the monday board Mitglieder and embedded on swissfoodresearch.ch through fixed iframe blocks in the Django admin:
 
-This repository holds only the build code. The wall itself (page, logos, fonts) is built from monday on every run and published straight to GitHub Pages, so no member logo is ever stored here, and a cancelled member disappears from the website at the next run.
+- **Logo wall**: https://foodinnovation.github.io/member-logo-wall/ (code in `build/`)
+- **Member galaxy** ("Our members"): https://foodinnovation.github.io/member-logo-wall/galaxy/ (code and design in `galaxy/`)
+
+This repository holds only the build code. Both pages are built from monday on every run and published straight to GitHub Pages, so no member logo or member list is ever stored here, and a cancelled member disappears from the website at the next run.
 
 ## How it runs
 
@@ -11,8 +14,9 @@ Every Monday at about 05:17 Zurich time, the workflow `Rebuild logo wall` (in `.
 1. pulls the active members of the monday board **Mitglieder** (1597941591) with the files in their **Logo** column (`build/fetch_board.py`);
 2. builds the page: one tile per organisation, departments of one institution merged, white logos on dark tiles, natural persons and ZZ/test records left out (`build/logo_wall.py`);
 3. opens it in a headless browser and checks tiles, logos, header count, search, filters and frame resizing (`build/verify.py`);
-4. compares the member count with the live site and stops if it moved by more than 15% (`build/compare_live.py`);
-5. publishes to GitHub Pages.
+4. builds the galaxy from the same pull plus the one-line descriptions on the Companies board (5098460127), and checks it the same way (`galaxy/build_galaxy.py`, `galaxy/verify_galaxy.py`). Its design, fonts and SFR logo are frozen in `galaxy/galaxy-template.html` and the `.b64` files: change them only on explicit request;
+5. compares the member count with the live site and stops if it moved by more than 15% (`build/compare_live.py`);
+6. publishes both to GitHub Pages.
 
 If any step fails, nothing is published and the last good version stays online. GitHub sends a failure email to the account that owns the workflow.
 
@@ -36,13 +40,21 @@ All in the constants at the top of `build/logo_wall.py`:
 - A new Innovation Group label: add its website name to `IG_NAMES`.
 - A wrong logo: replace the file in the Logo column on monday; the next run picks it up.
 
-## The block in Django
+## The blocks in Django
 
-Pasted once into the HTML element of the page; it does not change between runs:
+Pasted once into the HTML element of each page; they do not change between runs.
+
+Logo wall:
 
 ```html
 <iframe id="sfr-logo-wall" src="https://foodinnovation.github.io/member-logo-wall/" title="Members of Swiss Food Research" loading="lazy" style="width:100%;height:1400px;border:0;display:block"></iframe>
 <script>window.addEventListener("message",function(e){if(e.origin==="https://foodinnovation.github.io"&&e.data&&e.data.sfrLogoWall){document.getElementById("sfr-logo-wall").style.height=e.data.sfrLogoWall+"px"}});</script>
+```
+
+Member galaxy:
+
+```html
+<iframe src="https://foodinnovation.github.io/member-logo-wall/galaxy/" title="Our members" loading="lazy" style="width:100%;height:min(760px,85vh);border:0;display:block"></iframe>
 ```
 
 Logos belong to the members and are shown only to document SFR membership.

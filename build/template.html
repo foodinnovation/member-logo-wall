@@ -21,7 +21,14 @@ body{font-family:var(--font);font-size:17px;line-height:1.45;color:var(--ink-72)
 .wall{max-width:1280px;margin:0 auto;padding:8px 4px 24px}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin-bottom:20px}
 .count{font-weight:700;font-size:26px;line-height:1.04;letter-spacing:-.02em;color:var(--sfr-black);margin:0}
-.count small{display:block;margin-top:6px;font-weight:400;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-56)}
+.count .fig{display:flex;align-items:baseline;gap:10px}
+.count small{display:block;margin-top:8px;font-weight:400;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-56)}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* Count-up figure: rolling digit reels, after the Odometer Count-Up idea in Forever AI Components (MIT) */
+.odo{display:inline-flex;font-size:46px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.reel{display:inline-block;height:1em;overflow:hidden}
+.strip{display:flex;flex-direction:column;will-change:transform}
+.strip span{display:block;height:1em;line-height:1;text-align:center}
 .search{flex:1 1 260px;max-width:420px;margin-left:auto;position:relative}
 .search input{width:100%;font:inherit;font-size:15px;color:var(--sfr-black);background:var(--card);border:1px solid var(--ink-16);border-radius:var(--radius-pill);padding:11px 18px 11px 42px;outline:0;transition:border-color 140ms var(--ease),box-shadow 140ms var(--ease)}
 .search input:focus{border-color:var(--sfr-black);box-shadow:var(--focus)}
@@ -39,12 +46,19 @@ body{font-family:var(--font);font-size:17px;line-height:1.45;color:var(--ink-72)
 .tile.dark{background:var(--sfr-blue-01);border-color:var(--sfr-blue-01);color:var(--sfr-white)}
 a.tile:hover,a.tile:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--sfr-black);outline:0}
 a.tile:focus-visible{box-shadow:var(--focus)}
-.tile::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--sfr-cyan);transform:scaleX(0);transform-origin:left;transition:transform 220ms var(--ease)}
-a.tile:hover::after,a.tile:focus-visible::after{transform:scaleX(1)}
+.tile::after{content:"";position:absolute;z-index:1;left:0;right:0;bottom:0;height:3px;background:var(--sfr-cyan);transform:scaleX(0);transform-origin:left;transition:transform 220ms var(--ease)}
+a.tile:hover::after,a.tile:focus-visible::after,a.tile.open::after{transform:scaleX(1)}
 .tile img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
 .tile .name{font-weight:600;font-size:15px;line-height:1.16;text-align:center;overflow-wrap:anywhere}
-.tile .cap{position:absolute;left:0;right:0;bottom:3px;padding:6px 10px;font-size:11px;line-height:1.16;text-align:center;color:var(--ink-72);background:rgb(255 255 255/.94);opacity:0;transform:translateY(4px);transition:opacity 140ms var(--ease),transform 140ms var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile:hover .cap,.tile:focus-visible .cap{opacity:1;transform:none}
+/* Name and groups on hover, after the Reveal on Hover card in Forever AI Components (MIT).
+   The logo itself is only moved up, never dimmed, scaled or recoloured (member logo rules). */
+.tile img,.tile .name{transition:transform 220ms var(--ease)}
+.info{position:absolute;left:0;right:0;bottom:0;padding:10px 12px 13px;background:var(--sfr-black);color:var(--sfr-white);text-align:left;transform:translateY(101%);transition:transform 220ms var(--ease);pointer-events:none}
+.info b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;font-size:13px;line-height:1.2}
+.info i{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px;font-style:normal;font-size:11px;line-height:1.3;color:rgb(243 246 255/.72)}
+.tile:hover .info,.tile:focus-visible .info,.tile.open .info{transform:none}
+.tile:hover img,.tile:focus-visible img,.tile.open img{transform:translateY(-26%)}
+.tile.nologo:hover .name,.tile.nologo:focus-visible .name,.tile.nologo.open .name{transform:translateY(-30%)}
 li[hidden]{display:none}
 .empty{padding:48px 0;text-align:center;color:var(--ink-56)}
 .reset{font:inherit;font-size:13px;color:var(--sfr-blue-02);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
@@ -59,7 +73,7 @@ li[hidden]{display:none}
 <body>
 <div class="wall">
   <div class="bar">
-    <p class="count"><span id="n">__COUNT__ members</span><small id="sub">One network from farm to fork</small></p>
+    <p class="count"><span class="fig" aria-hidden="true"><span class="odo" id="odo"></span><span id="unit">members</span></span><span id="n" class="sr" aria-live="polite">__COUNT__ members</span><small id="sub">One network from farm to fork</small></p>
     <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Search members" aria-label="Search members" autocomplete="off"></label>
   </div>
@@ -75,7 +89,11 @@ li[hidden]{display:none}
   var TOTAL=__COUNT__, M=__DATA__, IGS=__IGS__, SECTORS=__SECTORS__;
   var grid=document.getElementById("grid"), q=document.getElementById("q"), state={ig:"",sec:""};
   function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
-  function nameTile(a,m){a.textContent="";a.appendChild(el("span","name",m.n))}
+  var REDUCE=matchMedia("(prefers-reduced-motion: reduce)").matches, TOUCH=matchMedia("(hover: none)").matches;
+  function info(m){var p=el("span","info");p.setAttribute("aria-hidden","true");p.appendChild(el("b",null,m.n));
+    var meta=(m.s||[]).concat(m.ig||[]);if(meta.length)p.appendChild(el("i",null,meta.join(" · ")));return p}
+  function nameTile(a,m){a.textContent="";a.classList.add("nologo");a.appendChild(el("span","name",m.n));
+    if((m.s||[]).length||(m.ig||[]).length){var p=info(m);p.removeChild(p.firstChild);p.firstChild.style.marginTop="0";a.appendChild(p)}}
   M.forEach(function(m){
     var li=el("li"), a=el(m.u?"a":"div","tile"+(m.d?" dark":""));
     if(m.u){a.href=m.u;a.target="_blank";a.rel="noopener";a.setAttribute("aria-label",m.n+" (opens the member's website)")}
@@ -83,9 +101,12 @@ li[hidden]{display:none}
       var img=new Image();img.alt=m.n;img.loading="lazy";img.decoding="async";
       img.onerror=function(){a.classList.remove("dark");nameTile(a,m)};
       img.src=m.f;
-      a.appendChild(img);a.appendChild(el("span","cap",m.n));
+      a.appendChild(img);a.appendChild(info(m));
     } else nameTile(a,m);
     li.appendChild(a);grid.appendChild(li);m.li=li;m.k=m.n.toLowerCase();
+    /* Phones have no hover: the first tap shows name and groups, the second opens the website. */
+    if(TOUCH&&m.u)a.addEventListener("click",function(e){if(!a.classList.contains("open")){e.preventDefault();
+      var o=grid.querySelector(".tile.open");if(o)o.classList.remove("open");a.classList.add("open")}});
   });
   function chips(id,list,key){
     var box=document.getElementById(id);
@@ -96,14 +117,38 @@ li[hidden]{display:none}
     });
   }
   chips("ig",IGS,"ig");chips("sec",SECTORS,"sec");
+  /* Count-up figure: one reel per digit, each strip holding 0-9 four times; rest position is the second copy. */
+  var odo=document.getElementById("odo"), reels=[], shownVal=null;
+  function setReels(n){while(reels.length<n){var r=el("span","reel"),st=el("span","strip");
+      for(var i=0;i<40;i++)st.appendChild(el("span",null,String(i%10)));r.appendChild(st);odo.insertBefore(r,odo.firstChild);reels.unshift({s:st,pos:10})}
+    while(reels.length>n){odo.removeChild(reels[0].s.parentNode);reels.shift()}}
+  function place(r,pos,ms){r.pos=pos;r.s.style.transition=ms?"transform "+ms+"ms cubic-bezier(.2,0,0,1)":"none";r.s.style.transform="translateY("+(-pos)+"em)";
+    if(ms)setTimeout(function(){var rest=10+pos%10;if(r.pos===pos&&pos!==rest){r.s.style.transition="none";r.s.style.transform="translateY("+(-rest)+"em)";r.pos=rest}},ms+30)}
+  function showNumber(v,first){var d=String(v);setReels(d.length);
+    reels.forEach(function(r,i){var digit=+d[i], fromRight=d.length-1-i;
+      if(REDUCE||(shownVal===null&&!first))place(r,10+digit,0);
+      else if(first){place(r,0,0);r.s.offsetHeight;place(r,10*(1+fromRight)+digit,1100+fromRight*350)}
+      else place(r,10+digit,420)});
+    shownVal=v}
+  showNumber(0,false);
+  if(REDUCE||!window.IntersectionObserver)showNumber(TOTAL,false);
+  else{var io=new IntersectionObserver(function(es){if(es[0].isIntersecting){io.disconnect();showNumber(TOTAL,true)}},{threshold:.6});io.observe(odo)}
+  /* Gliding tiles when filtering: FLIP (first, last, invert, play). */
   function apply(){
-    var t=q.value.trim().toLowerCase(), shown=0;
+    var t=q.value.trim().toLowerCase(), shown=0, before=new Map();
+    if(!REDUCE&&grid.animate)M.forEach(function(m){if(!m.li.hidden)before.set(m.li,m.li.getBoundingClientRect())});
     M.forEach(function(m){
       var ok=(!t||m.k.indexOf(t)>-1)&&(!state.ig||(m.ig||[]).indexOf(state.ig)>-1)&&(!state.sec||(m.s||[]).indexOf(state.sec)>-1);
       m.li.hidden=!ok;if(ok)shown++;
     });
-    var filtered=t||state.ig||state.sec;
+    if(before.size){var vh=innerHeight+400;M.forEach(function(m){if(m.li.hidden)return;var now=m.li.getBoundingClientRect(),was=before.get(m.li);
+      if(now.top>vh&&(!was||was.top>vh))return;
+      if(was){var dx=was.left-now.left,dy=was.top-now.top;if(dx||dy)m.li.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],{duration:320,easing:"cubic-bezier(.2,0,0,1)"})}
+      else m.li.animate([{opacity:0,transform:"scale(.94)"},{opacity:1,transform:"none"}],{duration:260,easing:"cubic-bezier(.2,0,0,1)"})})}
+    var filtered=t||state.ig||state.sec, v=filtered?shown:TOTAL;
     document.getElementById("n").textContent=filtered?shown+(shown===1?" match":" matches"):TOTAL+" members";
+    document.getElementById("unit").textContent=filtered?(shown===1?"match":"matches"):"members";
+    if(v!==shownVal)showNumber(v,false);
     document.getElementById("sub").textContent=filtered?"of "+M.length+" organisations":"One network from farm to fork";
     document.getElementById("empty").hidden=shown>0;
     fit();
